@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "clipped-overflow-container",
+        "value": "*",
+        "files": [
+          "drunk-walk/index.html"
+        ],
+        "createdAt": "2026-09-14T16:21:36.392Z",
+        "reason": "Claude: overlays are position:fixed children of body; body overflow:hidden does not clip fixed-position elements, so nothing is cut off"
+      }
+    ]
+  }
+}

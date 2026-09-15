@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#060c18" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <title>DRUNK WALK</title>
+    <style>
+      :root {
+        --bg: #060c18;
+        --panel: rgba(8, 18, 36, 0.86);
+        --panel-border: #1f3d63;
+        --ink: #dbeeff;
+        --ink-dim: #7fa3c8;
+        --cyan: #5fd3ff;
+        --warn: #ffb347;
+        --danger: #ff5f6d;
+        --sat: env(safe-area-inset-top, 0px);
+        --sab: env(safe-area-inset-bottom, 0px);
+        --sal: env(safe-area-inset-left, 0px);
+        --sar: env(safe-area-inset-right, 0px);
+      }
+      * { box-sizing: border-box; }
+      [hidden] { display: none !important; }
+      html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+      body {
+        font-family: 'Trebuchet MS', 'Segoe UI', Verdana, sans-serif;
+        -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+        touch-action: none; overscroll-behavior: none;
+      }
+      #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+      body.playing { cursor: none; }
+      .screen {
+        position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+        opacity: 0; pointer-events: none; transition: opacity 0.18s ease; z-index: 10;
+      }
+      .screen.on { opacity: 1; pointer-events: auto; }
+      .screen.dim { background: rgba(3, 8, 18, 0.62); }
+      .panel {
+        background: var(--panel); border: 2px solid var(--panel-border); padding: 22px 26px; min-width: min(92vw, 360px);
+        max-width: 92vw; text-align: center; box-shadow: 0 0 0 4px rgba(6, 12, 24, 0.7), 0 10px 40px rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+      }
+      h1.logo {
+        font-family: Impact, 'Arial Black', 'Trebuchet MS', sans-serif; font-size: clamp(56px, 14vw, 104px); line-height: 0.86;
+        letter-spacing: 0.02em; margin: 0 0 8px; color: var(--cyan); text-transform: uppercase;
+        text-shadow: 4px 4px 0 #0a2444, 8px 8px 0 rgba(0, 0, 0, 0.5);
+      }
+      h1.logo span { display: block; color: var(--ink); }
+      h2 { font-family: Impact, 'Arial Black', sans-serif; font-size: clamp(30px, 8vw, 48px); margin: 0 0 12px; letter-spacing: 0.03em; color: var(--cyan); text-transform: uppercase; text-shadow: 3px 3px 0 #0a2444; }
+      .tag { color: var(--ink-dim); margin: 0 0 18px; letter-spacing: 0.12em; text-transform: uppercase; font-size: 13px; }
+      .btn {
+        display: block; width: 100%; margin: 8px 0; padding: 14px 18px; min-height: 52px; font: inherit; font-weight: 800; font-size: 18px;
+        letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); background: #0f2442; border: 2px solid var(--panel-border);
+        cursor: pointer; transition: transform 0.06s, background 0.12s, border-color 0.12s;
+      }
+      .btn:hover, .btn:focus-visible { background: #163559; border-color: var(--cyan); outline: none; }
+      .btn:active { transform: translateY(2px); }
+      .btn.primary { background: var(--cyan); color: #04101f; border-color: #a8e8ff; }
+      .btn.primary:hover { background: #8ae2ff; }
+      .btn.ghost { background: transparent; }
+      .stat { margin: 10px 0; }
+      .stat .lbl { font-size: 12px; letter-spacing: 0.2em; color: var(--ink-dim); text-transform: uppercase; }
+      .stat .val { font-family: Impact, 'Arial Black', sans-serif; font-size: 34px; letter-spacing: 0.04em; color: var(--ink); }
+      .stat .val.big { font-size: 46px; color: var(--cyan); }
+      .row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+      .row .stat { flex: 1 1 120px; }
+      /* HUD */
+      /* HUD never swallows touches meant for the canvas; only its button is interactive. */
+      #hud { justify-content: flex-start; align-items: stretch; z-index: 5; pointer-events: none !important; }
+      #hud .btn { pointer-events: auto; }
+      #hud .top { display: flex; justify-content: space-between; align-items: flex-start; }
+      #hud .stat .val { font-size: 28px; text-shadow: 2px 2px 0 #04101f; }
+      #hud .stat.right { text-align: right; }
+      #btn-pause {
+        position: absolute; right: calc(14px + var(--sar)); bottom: calc(14px + var(--sab)); width: 48px; height: 48px; min-height: 0; margin: 0; padding: 0;
+        font-size: 18px; pointer-events: auto; opacity: 0.7;
+      }
+      #meter {
+        position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(22px + var(--sab)); width: min(60vw, 260px); height: 6px;
+        background: rgba(20, 40, 70, 0.7); border: 1px solid var(--panel-border);
+      }
+      #meter::before, #meter::after { content: ''; position: absolute; top: -3px; bottom: -3px; width: 2px; background: #2a4f7c; }
+      #meter::before { left: 50%; }
+      #meter::after { left: 50%; width: 0; }
+      #meter i { position: absolute; top: -5px; width: 14px; height: 14px; left: 50%; margin-left: -7px; background: var(--cyan); transform: rotate(45deg); transition: background 0.1s; }
+      #meter i.warn { background: var(--warn); }
+      #meter i.danger { background: var(--danger); }
+      #toast {
+        position: absolute; left: 50%; top: 24%; transform: translate(-50%, 0) scale(0.9); font-family: Impact, 'Arial Black', sans-serif; font-size: 34px;
+        letter-spacing: 0.08em; color: var(--cyan); text-shadow: 3px 3px 0 #04101f; opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none; white-space: nowrap;
+      }
+      #toast.on { opacity: 1; transform: translate(-50%, -10px) scale(1); }
+      #toast.record { color: var(--warn); }
+      #hint { position: absolute; left: 50%; bottom: calc(44px + var(--sab)); transform: translateX(-50%); color: var(--ink-dim); font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase; white-space: nowrap; opacity: 0; transition: opacity 0.3s; }
+      #hint.on { opacity: 1; }
+      /* Tutorial demo */
+      .demo { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 18px; }
+      .demo .line { display: flex; align-items: center; justify-content: center; gap: 14px; font-weight: 800; letter-spacing: 0.1em; }
+      .demo .man { width: 22px; height: 44px; background: var(--ink); position: relative; transform-origin: bottom center; animation: leanL 1.6s ease-in-out infinite; }
+      .demo .man::before { content: ''; position: absolute; top: -18px; left: 1px; width: 20px; height: 20px; border-radius: 50%; background: #c9a889; }
+      .demo .man.r { animation-name: leanR; }
+      .demo .arrow { font-size: 30px; color: var(--cyan); animation: pushR 1.6s ease-in-out infinite; }
+      .demo .arrow.l { animation-name: pushL; }
+      @keyframes leanL { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-22deg); } }
+      @keyframes leanR { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(22deg); } }
+      @keyframes pushR { 0%, 100% { transform: translateX(0); opacity: 0.4; } 50% { transform: translateX(16px); opacity: 1; } }
+      @keyframes pushL { 0%, 100% { transform: translateX(0); opacity: 0.4; } 50% { transform: translateX(-16px); opacity: 1; } }
+      .phone { width: 70px; height: 120px; margin: 10px auto 18px; border: 3px solid var(--cyan); border-radius: 10px; position: relative; animation: wiggle 2.2s ease-in-out infinite; }
+      .phone::after { content: '↑'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 40px; color: var(--cyan); }
+      @keyframes wiggle { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+      /* Leaderboard */
+      table { width: 100%; border-collapse: collapse; margin: 6px 0 14px; font-size: 16px; }
+      th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid #16304f; }
+      th { color: var(--ink-dim); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; }
+      td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+      tr.me td { color: var(--cyan); font-weight: 800; background: rgba(95, 211, 255, 0.08); }
+      /* Forms */
+      input[type='text'] {
+        width: 100%; padding: 12px 14px; font: inherit; font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink);
+        background: #08152a; border: 2px solid var(--panel-border); margin: 8px 0; text-align: center;
+      }
+      input[type='text']:focus { outline: none; border-color: var(--cyan); }
+      label.toggle { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #16304f; letter-spacing: 0.1em; text-transform: uppercase; font-size: 14px; }
+      label.toggle input { width: 22px; height: 22px; accent-color: var(--cyan); }
+      select { font: inherit; padding: 6px 10px; background: #08152a; color: var(--ink); border: 2px solid var(--panel-border); }
+      .err { color: var(--danger); font-size: 13px; min-height: 18px; }
+      .newbest { color: var(--warn); font-family: Impact, 'Arial Black', sans-serif; font-size: 28px; letter-spacing: 0.1em; animation: pop 0.6s ease-out; }
+      @keyframes pop { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+      #debug {
+        position: fixed; left: calc(8px + var(--sal)); bottom: calc(8px + var(--sab)); z-index: 20; font: 12px/1.4 monospace; color: #9fe0ff;
+        background: rgba(0, 0, 0, 0.6); padding: 8px 10px; white-space: pre; pointer-events: auto; display: none;
+      }
+      #debug button { font: inherit; margin: 4px 4px 0 0; }
+      #nowebgl { z-index: 100; background: var(--bg); }
+      .small { font-size: 13px; color: var(--ink-dim); margin: 8px 0 0; line-height: 1.5; }
+      #version { position: fixed; right: 8px; bottom: 4px; font-size: 11px; color: #6f95bd; z-index: 1; }
+      @media (max-height: 560px) { .panel { padding: 12px 18px; } h1.logo { font-size: clamp(40px, 10vh, 80px); } .btn { min-height: 44px; padding: 10px; } }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+
+    <div id="menu" class="screen">
+      <h1 class="logo">Drunk<span>Walk</span></h1>
+      <p class="tag">Don't let him fall.</p>
+      <div class="panel">
+        <button id="btn-start" class="btn primary">Start</button>
+        <button id="btn-leaderboard" class="btn">Leaderboard</button>
+        <button id="btn-settings" class="btn ghost">Settings</button>
+        <div class="stat"><div class="lbl">Best</div><div id="menu-best" class="val">0</div></div>
+      </div>
+    </div>
+
+    <div id="tutorial" class="screen dim">
+      <div class="panel">
+        <h2>How to play</h2>
+        <div id="tut-desktop" class="demo">
+          <div class="line"><span class="man"></span><span>He leans LEFT</span><span class="arrow">➜</span><span>Move RIGHT</span></div>
+          <div class="line"><span class="man r"></span><span>He leans RIGHT</span><span class="arrow l">➜</span><span>Move LEFT</span></div>
+          <p class="small">Push against the direction he's falling. Mouse or A/D keys.</p>
+        </div>
+        <div id="tut-mobile" class="demo" hidden>
+          <div class="phone"></div>
+          <div class="line">Tilt to balance him</div>
+          <p class="small">Tilt against the direction he's falling.</p>
+        </div>
+        <button id="btn-tut-go" class="btn primary">Got it</button>
+      </div>
+    </div>
+
+    <div id="calib" class="screen dim">
+      <div class="panel">
+        <h2>Ready?</h2>
+        <div class="phone"></div>
+        <p id="calib-msg" class="small">Hold your phone naturally in your playing position. Keep it still.</p>
+        <button id="btn-calib" class="btn primary">Calibrate &amp; Start</button>
+        <button id="btn-calib-skip" class="btn ghost">Use touch instead</button>
+      </div>
+    </div>
+
+    <div id="hud" class="screen">
+      <div class="top">
+        <div class="stat"><div class="lbl">Distance</div><div id="hud-distance" class="val">0 m</div></div>
+        <div class="stat right"><div class="lbl">Score</div><div id="hud-score" class="val">0</div></div>
+      </div>
+      <div id="toast"></div>
+      <div id="hint"></div>
+      <div id="meter"><i></i></div>
+      <button id="btn-pause" class="btn" aria-label="Pause">II</button>
+    </div>
+
+    <div id="pause" class="screen dim">
+      <div class="panel">
+        <h2>Paused</h2>
+        <button id="btn-resume" class="btn primary">Resume</button>
+        <button id="btn-restart" class="btn">Restart</button>
+        <button id="btn-quit" class="btn ghost">Quit</button>
+      </div>
+    </div>
+
+    <div id="gameover" class="screen dim">
+      <div class="panel">
+        <h2>You fell</h2>
+        <div id="go-newbest" class="newbest" hidden>New best!</div>
+        <div class="row">
+          <div class="stat"><div class="lbl">Distance</div><div id="go-distance" class="val">0 m</div></div>
+          <div class="stat"><div class="lbl">Score</div><div id="go-score" class="val big">0</div></div>
+        </div>
+        <div class="row">
+          <div class="stat"><div class="lbl">Best</div><div id="go-best" class="val">0</div></div>
+          <div class="stat"><div class="lbl">Rank</div><div id="go-rank" class="val">—</div></div>
+        </div>
+        <form id="name-form" hidden autocomplete="off">
+          <p class="small">Enter a nickname for the leaderboard</p>
+          <input id="name-input" type="text" maxlength="16" placeholder="NICKNAME" aria-label="Nickname" />
+          <div id="name-err" class="err"></div>
+          <button id="btn-name-submit" class="btn primary" type="submit">Submit score</button>
+        </form>
+        <button id="btn-again" class="btn primary">Play again</button>
+        <button id="btn-go-lb" class="btn">Leaderboard</button>
+        <button id="btn-go-menu" class="btn ghost">Menu</button>
+      </div>
+    </div>
+
+    <div id="leaderboard" class="screen dim">
+      <div class="panel">
+        <h2>Leaderboard</h2>
+        <table><thead><tr><th>Rank</th><th>Name</th><th class="num">Score</th></tr></thead><tbody id="lb-list"></tbody></table>
+        <button id="btn-lb-back" class="btn">Back</button>
+      </div>
+    </div>
+
+    <div id="settings" class="screen dim">
+      <div class="panel">
+        <h2>Settings</h2>
+        <label class="toggle">Nickname <input id="set-name" type="text" maxlength="16" style="width: 55%; margin: 0" /></label>
+        <div id="set-name-err" class="err"></div>
+        <label class="toggle">Sound <input id="set-sound" type="checkbox" /></label>
+        <label class="toggle">Ambience <input id="set-music" type="checkbox" /></label>
+        <label class="toggle">Controls
+          <select id="set-control"><option value="auto">Auto</option><option value="mouse">Mouse / keys</option><option value="tilt">Tilt</option><option value="touch">Touch drag</option></select>
+        </label>
+        <label class="toggle">Sensitivity <input id="set-sens" type="range" min="0.5" max="1.8" step="0.1" style="width: 50%" /></label>
+        <label class="toggle">Show tutorial again <input id="set-tut" type="checkbox" /></label>
+        <button id="btn-set-back" class="btn" style="margin-top: 16px">Back</button>
+      </div>
+    </div>
+
+    <div id="nowebgl" class="screen">
+      <div class="panel">
+        <h2>No WebGL</h2>
+        <p class="small">Your browser can't render 3D graphics. Try a recent Chrome, Firefox, Safari or Edge with hardware acceleration enabled.</p>
+      </div>
+    </div>
+
+    <div id="debug"></div>
+    <div id="version">drunk walk v1.0</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

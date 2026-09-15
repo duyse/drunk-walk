@@ -1,0 +1,11 @@
+{
+  "name": "Drunk Walk",
+  "short_name": "DrunkWalk",
+  "description": "Counter-steer a progressively drunk man walking toward you. Don't let him fall.",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#060c18",
+  "theme_color": "#060c18",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
